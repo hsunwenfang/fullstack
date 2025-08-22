@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: fullstack_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: fullstack_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  backend:
+    build: ./backend
+    container_name: fullstack_backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      # Default to the in-cluster services; can be overridden via .env
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/appdb
+      MONGO_URL: mongodb://mongo:27017
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - mongo
+
+  frontend:
+    build: ./frontend
+    container_name: fullstack_frontend
+    restart: unless-stopped
+    environment:
+      # Point frontend to backend; override in .env if serving elsewhere
+  VITE_API_BASE_URL: http://backend:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  mongodata:
