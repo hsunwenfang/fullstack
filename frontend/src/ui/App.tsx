@@ -1,35 +1,70 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+import React, { useEffect, useState } from 'react'
+import { createUser, getUsers, sendChat, type User } from '../api'
 
 export const App: React.FC = () => {
-  const [users, setUsers] = useState<Array<{ id?: number; name: string; email: string }>>([])
+  const [users, setUsers] = useState<User[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [reply, setReply] = useState('')
-  const [selectedUserId, setSelectedUserId] = useState<number | ''>('')
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const client = useMemo(() => axios.create({ baseURL: `${API_BASE}/api` }), [])
 
   useEffect(() => {
-    client.get('/users').then(r => setUsers(r.data)).catch(() => setUsers([]))
+    // In React 18 StrictMode (dev), effects run twice on mount.
+    // Cancel the first in-flight request to avoid duplicate work.
+    const ac = new AbortController()
+      ; (async () => {
+        try {
+          setLoading(true)
+          setError(null)
+          let list = await getUsers({ signal: ac.signal })
+          if (list.length === 0) {
+            // Seed three default users if none exist
+            const defaults = [
+              { name: 'A', email: 'a@example.com' },
+              { name: 'B', email: 'b@example.com' },
+              { name: 'C', email: 'c@example.com' },
+            ]
+            const created: User[] = []
+            for (const u of defaults) {
+              created.push(await createUser(u, { signal: ac.signal }))
+            }
+            list = created
+          }
+          setUsers(list)
+          // Preselect the first user if none selected yet
+          if (list[0]?.id) {
+            setSelectedUserId((prev) => (prev === '' ? String(list[0].id) : prev))
+          }
+          setLoading(false)
+        } catch (err: any) {
+          // Ignore cancellations; surface other errors minimally
+          if (err && (err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.message === 'canceled')) return
+          setUsers([])
+          setError('Failed to load users')
+          // eslint-disable-next-line no-console
+          console.error('Failed to load users', err)
+          setLoading(false)
+        }
+      })()
+    return () => ac.abort()
   }, [])
 
   const addUser = async () => {
     if (!name || !email) return
-    const res = await client.post('/users', { name, email })
-    setUsers(prev => [...prev, res.data])
+    const created = await createUser({ name, email })
+    setUsers(prev => [...prev, created])
     setName('')
     setEmail('')
   }
 
   const sendMessage = async () => {
     if (!selectedUserId || !message) return
-    const params = new URLSearchParams({ user_id: String(selectedUserId), message })
-    const res = await client.post(`/chat?${params.toString()}`)
-    setReply(res.data.reply)
+    const res = await sendChat(Number(selectedUserId), message)
+    setReply(res.reply)
   }
 
   return (
@@ -47,12 +82,14 @@ export const App: React.FC = () => {
 
       <section style={{ marginBottom: '2rem' }}>
         <h2>Users</h2>
-        <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value ? Number(e.target.value) : '')}>
+        <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}>
           <option value="">Select user</option>
           {users.map(u => (
-            <option key={u.id ?? u.email} value={u.id}>{u.name} ({u.email})</option>
+            <option key={u.id ?? u.email} value={u.id ? String(u.id) : ''}>{u.name} ({u.email})</option>
           ))}
         </select>
+        {loading && <div>Loading users…</div>}
+        {error && <div style={{ color: 'crimson' }}>{error}</div>}
       </section>
 
       <section>

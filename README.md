@@ -1,4 +1,41 @@
 # Fullstack AI App
+## Deploy to AKS with Azure OpenAI
+
+Prereqs:
+- Azure CLI logged in and access to the subscription.
+- Docker logged in locally.
+
+Steps (zsh):
+
+1. Review variables at the top of `scripts/deploy.sh` (resource group, region, ACR name, Azure OpenAI names, AKS ID, etc.). You can also export environment variables to override.
+2. Run the deploy script. It will:
+  - Create Resource Group, ACR, Azure OpenAI (if missing) and deploy a model.
+  - Build and push Docker images to ACR.
+  - Attach ACR to AKS and fetch kubeconfig.
+  - Create Kubernetes namespace, Postgres, Mongo, backend/frontend deployments and LoadBalancer services.
+  - Create/update a Secret holding Azure OpenAI endpoint/key/deployment.
+
+Try it:
+
+```zsh
+chmod +x scripts/deploy.sh
+SUBSCRIPTION_ID=<your-sub> \
+AKS_ID=/subscriptions/.../resourceGroups/.../providers/Microsoft.ContainerService/managedClusters/... \
+RG_NAME=fullstack-ai-rg \
+LOCATION=eastus \
+ACR_NAME=<uniqueacrname> \
+AOAI_NAME=<aoai-name> \
+AOAI_DEPLOYMENT=gpt4o-mini \
+./scripts/deploy.sh
+```
+
+After apply, get the public IPs:
+
+```zsh
+kubectl -n fullstack get svc frontend backend
+```
+
+Set `VITE_API_BASE_URL` if hosting backend elsewhere.
 
 This repository contains a minimal full-stack scaffold:
 - React (Vite + TypeScript) frontend

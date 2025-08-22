@@ -19,4 +19,10 @@ class Settings(BaseSettings):
     openai_base_url: str | None = Field(default=None, alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
 
+    # Azure OpenAI (preferred when provided)
+    azure_openai_endpoint: str | None = Field(default=None, alias="AZURE_OPENAI_ENDPOINT")
+    azure_openai_api_key: str | None = Field(default=None, alias="AZURE_OPENAI_API_KEY")
+    azure_openai_deployment: str | None = Field(default=None, alias="AZURE_OPENAI_DEPLOYMENT")
+    azure_openai_api_version: str = Field(default="2024-07-01-preview", alias="AZURE_OPENAI_API_VERSION")
+
 settings = Settings()  # type: ignore
